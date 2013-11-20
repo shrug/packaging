@@ -90,8 +90,20 @@ if @build.pre_tar_task
       Bundler.rubygems.ui = ::RGProxy.new(Bundler.ui)
       Bundler.ui.level = "debug"
 
-      # Load the the Gemfile and resolve gems using RubyGems.org
-      definition = Bundler.definition
+      # Load the the Gemfile and resolve gems using RubyGems.org or a local mirror
+      unless @build.rubygems_mirror == nil
+        Bundler.configure
+        Bundler.send( :upgrade_lockfile )
+        gemfile = Pathname.new(Bundler.default_gemfile).expand_path
+        builder = Bundler::Dsl.new
+        builder.eval_gemfile(gemfile)
+        our_source = Bundler::Source::Rubygems.new
+        our_source.add_remote @build.rubygems_mirror
+        builder.instance_variable_set( :@rubygems_source, our_source )
+        definition = builder.to_definition(Bundler.default_lockfile, {})
+      else
+        definition = Bundler.definition
+      end
       definition.validate_ruby!
       definition.resolve_remotely!
 
